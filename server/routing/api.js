@@ -15,7 +15,6 @@ module.exports = function (app) {
         customValidators: {
             clientIsAvailable: function (value) {
                 return new Promise(function (resolve, reject) {
-                    log.info(value);
                     ClientModel.findById(value, function (error, client) {
                         if (!client) {
                             reject({error: {code: 404, message: 'Client not found'}});
@@ -41,6 +40,7 @@ module.exports = function (app) {
             ].indexOf(req.originalUrl) === -1) {
             req.checkBody('access_token')
                 .notEmpty()
+                .isLength([24])
                 .clientIsAvailable();
 
             req.asyncValidationErrors()
@@ -51,7 +51,7 @@ module.exports = function (app) {
                     res.status(400).json({
                         status: 'ERROR',
                         code: 400,
-                        errors: errors
+                        errors: makeValidationErrorArray(errors)
                     });
                 });
         } else {
@@ -60,7 +60,7 @@ module.exports = function (app) {
     });
 
     // GET:/api/handshake
-    app.post(getUrl('handshake'), function (req, res) {
+    app.get(getUrl('handshake'), function (req, res) {
         var client = new ClientModel;
         client.save(function (err) {
             if (!err) {
@@ -73,8 +73,6 @@ module.exports = function (app) {
                     access_token: client._id
                 });
             } else {
-                console.log(err);
-
                 res.statusCode = 500;
                 res.send({
                     status: 'ERROR',
@@ -100,7 +98,7 @@ module.exports = function (app) {
                     })
                     .catch(function (errors) {
                         callback({
-                            isValidateError: true,
+                            code: 400,
                             errors: errors
                         });
                     })
@@ -117,34 +115,32 @@ module.exports = function (app) {
                 });
 
                 job.save(function (error) {
-                    callback(error, job.id)
-                })
+                    if (error) {
+                        callback({
+                            code: 500,
+                            errors: 'Internal server error'
+                        });
+                    } else {
+                        callback(error, job);
+                    }
+                });
             }
-        ], function (error, jobId) {
+        ], function (error, job) {
             if (error) {
-                log.error(error);
-
-                if (error.isValidateError) {
-                    res.status(400).json({
-                        status: 'ERROR',
-                        code: 400,
-                        errors: error.errors
-                    });
-                } else {
-                    res.status(500).json({
-                        status: 'ERROR',
-                        code: 500,
-                        errors: error.errors ? _.map(error.errors, function (error, key) {
-                            return 'Request key \'' + key + '\' is invalid';
-                        }) : []
-                    });
-                }
+                res.status(error.code).json({
+                    status: 'ERROR',
+                    code: error.code,
+                    errors: error.errors
+                });
             } else {
                 res.status(201).json({
                     status: 'OK',
                     message: 'Job created',
                     data: {
-                        job_id: jobId
+                        id: job.id,
+                        created: job.created,
+                        status: job.status,
+                        url: job.url
                     }
                 });
             }
@@ -155,7 +151,9 @@ module.exports = function (app) {
     app.get(getUrl(['job', 'status']), function (req, res) {
         async.waterfall([
                 function (callback) {
-                    req.checkBody('job_id').notEmpty();
+                    req.checkBody('job_id')
+                        .notEmpty()
+                        .isLength([24]);
 
                     req.asyncValidationErrors()
                         .then(function () {
@@ -164,42 +162,35 @@ module.exports = function (app) {
                         .catch(function (errors) {
                             callback({
                                 code: 400,
-                                errors: _.map(errors, function (error) {
-                                    var errorObj = {};
-                                    log.debug(error);
-                                    errorObj[error.path] = error.message;
-
-                                    return errorObj;
-                                })
+                                errors: makeValidationErrorArray(errors)
                             })
                         });
                 },
                 function (jobId, clientId, callback) {
                     ClientModel.findById(clientId, function (error, client) {
                         if (error) {
-                            callback({errors: ['Internal error']});
+                            callback({errors: 'Internal server error'});
                         } else {
                             callback(null, jobId, client)
                         }
                     });
                 },
                 function (jobId, client, callback) {
-                    log.debug('JobID:', jobId);
                     JobModel.findById(jobId, function (error, job) {
                         if (error) {
                             callback({
                                 code: 500,
-                                errors: ['Internal error']
+                                errors: 'Internal server error'
                             });
                         } else if (!job) {
                             callback({
                                 code: 404,
-                                errors: ['Job not found']
+                                errors: 'Job not found'
                             });
                         } else if (job.client_id != client.id) {
                             callback({
                                 code: 403,
-                                errors: ['Access forbidden']
+                                errors: 'Access forbidden'
                             });
                         } else {
                             callback(null, job);
@@ -232,5 +223,16 @@ module.exports = function (app) {
 
     function getUrl(url) {
         return [apiRoutePrefix].concat(url).join('/');
+    }
+
+    function makeValidationErrorArray(errors) {
+        return _.chain(errors).map(function (error) {
+            var errorObj = {};
+            errorObj[error.param] = error.msg;
+
+            return errorObj;
+        }).uniq(function (a, b) {
+            return JSON.stringify(a) === JSON.stringify(b);
+        }).value();
     }
 };
