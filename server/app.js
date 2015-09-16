@@ -1,9 +1,10 @@
-var config = require('./config/config');
+var config = require('./libs/config');
 
 var express = require('express');
 var path = require('path');
 var bodyParser = require('body-parser');
 var methodOverride = require('method-override');
+var expressValidator = require('express-validator');
 
 var log = require('./libs/log')(module);
 
@@ -11,6 +12,7 @@ var app = express();
 
 app.use(bodyParser.json());
 app.use(methodOverride('X-HTTP-Method-Override'));
+app.use(expressValidator());
 
 require('./routing/main')(app);
 require('./routing/api')(app);
@@ -34,7 +36,7 @@ app.use(function (err, req, res, next) {
     return;
 });
 
-server = app.listen(config.express.port, function () {
+server = app.listen(config.get('express:port'), function () {
     var host = server.address().address;
     var port = server.address().port;
 

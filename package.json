@@ -11,9 +11,13 @@
   "dependencies": {
     "body-parser": "^1.13.3",
     "express": "^4.13.3",
+    "express-validator": "^2.17.1",
     "method-override": "^2.3.5",
+    "mongoose": "^4.1.7",
+    "nconf": "^0.7.2",
     "path": "^0.12.7",
     "supervisor": "^0.7.1",
+    "util": "^0.10.3",
     "winston": "^1.0.1"
   }
 }
