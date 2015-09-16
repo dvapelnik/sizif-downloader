@@ -151,6 +151,85 @@ module.exports = function (app) {
         });
     });
 
+    // GET:/api/job/status
+    app.get(getUrl(['job', 'status']), function (req, res) {
+        async.waterfall([
+                function (callback) {
+                    req.checkBody('job_id').notEmpty();
+
+                    req.asyncValidationErrors()
+                        .then(function () {
+                            callback(null, req.body.job_id, req.body.access_token);
+                        })
+                        .catch(function (errors) {
+                            callback({
+                                code: 400,
+                                errors: _.map(errors, function (error) {
+                                    var errorObj = {};
+                                    log.debug(error);
+                                    errorObj[error.path] = error.message;
+
+                                    return errorObj;
+                                })
+                            })
+                        });
+                },
+                function (jobId, clientId, callback) {
+                    ClientModel.findById(clientId, function (error, client) {
+                        if (error) {
+                            callback({errors: ['Internal error']});
+                        } else {
+                            callback(null, jobId, client)
+                        }
+                    });
+                },
+                function (jobId, client, callback) {
+                    log.debug('JobID:', jobId);
+                    JobModel.findById(jobId, function (error, job) {
+                        if (error) {
+                            callback({
+                                code: 500,
+                                errors: ['Internal error']
+                            });
+                        } else if (!job) {
+                            callback({
+                                code: 404,
+                                errors: ['Job not found']
+                            });
+                        } else if (job.client_id != client.id) {
+                            callback({
+                                code: 403,
+                                errors: ['Access forbidden']
+                            });
+                        } else {
+                            callback(null, job);
+                        }
+                    });
+                }
+            ],
+            function (error, job) {
+                if (error) {
+                    res.status(error.code).json({
+                        status: 'ERROR',
+                        code: error.code,
+                        errors: error.errors
+                    });
+                } else {
+                    res.json({
+                        status: 'OK',
+                        code: 200,
+                        data: {
+                            id: job.id,
+                            url: job.url,
+                            status: job.status,
+                            created: job.created
+                        }
+                    });
+                }
+            }
+        )
+    });
+
     function getUrl(url) {
         return [apiRoutePrefix].concat(url).join('/');
     }
