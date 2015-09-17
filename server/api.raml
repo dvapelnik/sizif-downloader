@@ -1,0 +1,155 @@
+#%RAML 0.8
+
+title: Image downloader job implemention
+baseUri: http://sizif.sansara.pp.ua/api/{version}
+version: v1
+traits:
+  - hasInternalError:
+      responses:
+        500:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 500,
+                  "errors": "Internal server error",
+                  "status": "ERROR"
+                }:
+
+/handshake:
+  post:
+    description: |
+      "Create new client and retrieve access token for using service"
+    responses:
+      201:
+        body:
+          applocation/json:
+            example: |
+              {
+                "access_token": "55f9d36dc793ccc60b93e5a5",
+                "code": 201,
+                "message": "Client created",
+                "status": "OK"
+              }
+      500:
+        body:
+          application/json:
+            example: |
+              {
+                "code": 500,
+                "errors": "Internal server error",
+                "status": "ERROR"
+              }
+/job:
+  /make:
+    is: [ hasInternalError ]
+    post:
+      description: |
+        "Make job for downloading images by page url"
+      body:
+        application/json:
+          schema: |
+            {
+              "access_token": "55f9d36dc793ccc60b93e5a5",
+              "url": "http://google.com"
+            }
+      responses:
+        201:
+          body:
+            application/json:
+              example: |
+                {
+                  "data": {
+                    "created": "2015-09-16T21:12:46.597Z",
+                    "id": "55f9db4ef0a3574412661f15",
+                    "status": "created",
+                    "url": "http://google.com"
+                  },
+                  "message": "Job created",
+                  "status": "OK"
+                }
+        400:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 400,
+                  "errors": [
+                    {
+                      "url": "Url is invalid"
+                    }
+                  ],
+                  "status": "ERROR"
+                }
+        401:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 401,
+                  "errors": [
+                    {
+                      "access_token": "Invalid value"
+                    }
+                  ],
+                  "status": "ERROR"
+                }
+  /status:
+    is: [ hasInternalError ]
+    get:
+      description: |
+        "Get job dounloading status"
+      body:
+        application/json:
+          schema: |
+            {
+              "access_token": "55fab68e2f70e71602187284",
+              "job_id": "55fab6c82f70e71602187285"
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 200,
+                  "data":
+                    {
+                      "created": "2015-09-17T12:49:12.822Z",
+                      "id": "55fab6c82f70e71602187285",
+                      "status": "created",
+                      "url": "http://google.com"
+                    },
+                    "status": "OK"
+                }
+        401:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 401,
+                  "errors": [
+                    {
+                        "access_token": "Access token should have 24 symbol"
+                    }
+                  ],
+                  "status": "ERROR"
+                }
+        403:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 403,
+                  "errors": "Access forbidden",
+                  "status": "ERROR"
+                }
+        404:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 404,
+                  "errors": "Job not found",
+                  "status": "ERROR"
+                }

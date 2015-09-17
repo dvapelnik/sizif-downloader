@@ -3,31 +3,41 @@ var async = require('async');
 var _ = require('underscore');
 var expressValidator = require('express-validator');
 
+var mongooseConnection = require('./../libs/mongoose').connection;
+
 var ClientModel = require('./../libs/mongoose').ClientModel;
 var JobModel = require('./../libs/mongoose').JobModel;
 
 module.exports = function (app) {
     var config = require('./../libs/config');
-    var apiRoutePrefix = config.get('express:apiRoutePrefix');
+
+    var apiRoutePrefix = config.get('api:routePrefix');
+    var apiVersion = config.get('api:version');
 
     // Custom validators
     app.use(expressValidator({
         customValidators: {
             clientIsAvailable: function (value) {
+                console.log('Promise');
                 return new Promise(function (resolve, reject) {
-                    ClientModel.findById(value, function (error, client) {
-                        if (!client) {
-                            reject({error: {code: 404, message: 'Client not found'}});
-                            return;
-                        }
+                    if (mongooseConnection.readyState) {
+                        ClientModel.findById(value, function (error, client) {
+                            if (!client) {
+                                reject({error: {code: 404, errors: 'Client not found'}});
+                                return;
+                            }
 
-                        if (error) {
-                            reject({error: error});
-                            return;
-                        }
+                            if (error) {
+                                reject({error: error});
+                                return;
+                            }
 
-                        resolve(client);
-                    });
+                            resolve(client);
+                        });
+                    } else {
+                        reject({error: {code: 500, errors: 'Internal server error'}})
+                    }
+
                 })
             }
         }
@@ -38,19 +48,23 @@ module.exports = function (app) {
         if ([
                 getUrl(['handshake'])
             ].indexOf(req.originalUrl) === -1) {
-            req.checkBody('access_token')
-                .notEmpty()
-                .isLength([24])
-                .clientIsAvailable();
+            req.checkBody('access_token',
+                'Access token is not defined').notEmpty();
+            req.checkBody('access_token',
+                'Access token should have 24 symbol').isLength([24]);
+            req.checkBody('access_token',
+                'Client not found or internal server error occurred').clientIsAvailable();
 
             req.asyncValidationErrors()
                 .then(function () {
                     next();
                 })
                 .catch(function (errors) {
-                    res.status(400).json({
+                    var status = 401;
+                    console.log(errors);
+                    res.status(status).json({
                         status: 'ERROR',
-                        code: 400,
+                        code: status,
                         errors: makeValidationErrorArray(errors)
                     });
                 });
@@ -59,28 +73,33 @@ module.exports = function (app) {
         }
     });
 
-    // GET:/api/handshake
-    app.get(getUrl('handshake'), function (req, res) {
+    // Disable caching
+    app.use(function (req, res, next) {
+        next();
+    });
+
+    // POST:/api/handshake
+    app.post(getUrl('handshake'), function (req, res) {
         var client = new ClientModel;
         client.save(function (err) {
-            if (!err) {
+            if (err) {
+                res.statusCode = 500;
+                res.send({
+                    status: 'ERROR',
+                    code: 500,
+                    errors: 'Internal server error'
+                });
+
+                log.error('Internal error(%d): %s', res.statusCode, err.message);
+            } else {
                 log.info("Client created");
 
                 res.json({
                     status: 'OK',
                     code: 201,
-                    message: 'all good!',
+                    message: 'Client created',
                     access_token: client._id
                 });
-            } else {
-                res.statusCode = 500;
-                res.send({
-                    status: 'ERROR',
-                    code: 500,
-                    message: 'Server error'
-                });
-
-                log.error('Internal error(%d): %s', res.statusCode, err.message);
             }
 
         });
@@ -97,6 +116,7 @@ module.exports = function (app) {
                         callback(null);
                     })
                     .catch(function (errors) {
+                        console.log(errors);
                         callback({
                             code: 400,
                             errors: errors
@@ -130,7 +150,7 @@ module.exports = function (app) {
                 res.status(error.code).json({
                     status: 'ERROR',
                     code: error.code,
-                    errors: error.errors
+                    errors: makeValidationErrorArray(error.errors)
                 });
             } else {
                 res.status(201).json({
@@ -222,7 +242,7 @@ module.exports = function (app) {
     });
 
     function getUrl(url) {
-        return [apiRoutePrefix].concat(url).join('/');
+        return [apiRoutePrefix, apiVersion].concat(url).join('/');
     }
 
     function makeValidationErrorArray(errors) {

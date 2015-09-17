@@ -62,5 +62,8 @@ Job.statics.getStatusList = function () {
     }
 };
 
-module.exports.ClientModel = mongoose.model('Client', Client);
-module.exports.JobModel = mongoose.model('Job', Job);
+module.exports = {
+    connection: db,
+    ClientModel: mongoose.model('Client', Client),
+    JobModel: mongoose.model('Job', Job)
+};
