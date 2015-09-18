@@ -195,3 +195,27 @@ traits:
                   "errors": "Job not found",
                   "status": "ERROR"
                 }
+  /list:
+    is: [ authRequired, hasInternalError ]
+    get:
+      description: |
+        "Retrieve all jobs for specified user by access_token"
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 200,
+                  "data": {
+                    "jobs": [
+                      {
+                        "created": "2015-09-18T18:51:53.034Z",
+                        "id": "55fc5d49c7ba346d254e9e33",
+                        "status": "complete",
+                        "url": "http://pmg17.vn.ua/"
+                      }
+                    ]
+                  },
+                  "status": "ERROR"
+                }

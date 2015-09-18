@@ -319,6 +319,48 @@ module.exports = function (app) {
             }
         });
     });
+
+    app.get(getUrl(['job', 'list']), function (req, res) {
+        async.waterfall([
+            function (callback) {
+                JobModel.find({client_id: req.query.access_token}, function (error, jobs) {
+                    if (error) {
+                        callback({
+                            code: 500,
+                            errors: 'Internal error'
+                        });
+                    } else {
+                        var jobList = jobs.map(function (job) {
+                            return {
+                                id: job.id,
+                                status: job.status,
+                                url: job.url,
+                                created: job.created
+                            }
+                        });
+
+                        callback(null, jobList);
+                    }
+                })
+            }
+        ], function (error, jobList) {
+            if (error) {
+                res.status(error.code).json({
+                    status: 'ERROR',
+                    code: error.code,
+                    errors: error.errors
+                })
+            } else {
+                res.json({
+                    status: 'ERROR',
+                    code: 200,
+                    data: {
+                        jobs: jobList
+                    }
+                });
+            }
+        });
+    });
 };
 
 function makeValidationErrorArray(errors) {
