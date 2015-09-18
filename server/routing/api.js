@@ -11,13 +11,12 @@ var downloader = require('./../libs/downloader');
 
 var ClientModel = require('./../libs/mongoose').ClientModel;
 var JobModel = require('./../libs/mongoose').JobModel;
+var ImageModel = require('./../libs/mongoose').ImageModel;
+
+var apiRoutePrefix = config.get('api:routePrefix');
+var apiVersion = config.get('api:version');
 
 module.exports = function (app) {
-    var config = require('./../libs/config');
-
-    var apiRoutePrefix = config.get('api:routePrefix');
-    var apiVersion = config.get('api:version');
-
     // Custom validators
     app.use(expressValidator({
         customValidators: {
@@ -129,7 +128,7 @@ module.exports = function (app) {
                     })
             },
             function (callback) {
-                ClientModel.findById(req.body.access_token, function (error, client) {
+                ClientModel.findById(req.query.access_token, function (error, client) {
                     callback(error, client);
                 });
             },
@@ -218,37 +217,8 @@ module.exports = function (app) {
                             })
                         });
                 },
-                function (jobId, clientId, callback) {
-                    ClientModel.findById(clientId, function (error, client) {
-                        if (error) {
-                            callback({errors: 'Internal server error'});
-                        } else {
-                            callback(null, jobId, client)
-                        }
-                    });
-                },
-                function (jobId, client, callback) {
-                    JobModel.findById(jobId, function (error, job) {
-                        if (error) {
-                            callback({
-                                code: 500,
-                                errors: 'Internal server error'
-                            });
-                        } else if (!job) {
-                            callback({
-                                code: 404,
-                                errors: 'Job not found'
-                            });
-                        } else if (job.client_id != client.id) {
-                            callback({
-                                code: 403,
-                                errors: 'Access forbidden'
-                            });
-                        } else {
-                            callback(null, job);
-                        }
-                    });
-                }
+                findClient,
+                checkAccess
             ],
             function (error, job) {
                 if (error) {
@@ -273,36 +243,135 @@ module.exports = function (app) {
         )
     });
 
-    // GET:/api/v1/job/:id
+    // GET:/api/v1/job
     app.get(getUrl(['job']), function (req, res) {
         async.waterfall([
             function (callback) {
-                req.checkBody('id')
+                req.checkQuery('job_id')
                     .notEmpty()
                     .isLength([24]);
 
                 req.asyncValidationErrors()
                     .then(function () {
-                        callback(null, req.body.job_id, req.body.access_token)
+                        callback(null, req.query.job_id, req.query.access_token)
                     })
-            }
-        ], function (error, result) {
+                    .catch(function (errors) {
+                        callback({
+                            code: 400,
+                            errors: makeValidationErrorArray(errors)
+                        })
+                    });
+            },
+            findClient,
+            checkAccess,
+            function (job, callback) {
+                var resultObject = {
+                    id: job.id,
+                    url: job.url,
+                    status: job.status,
+                    created: job.created
+                };
 
+                if (job.status == JobModel.getStatusList().complete) {
+                    ImageModel.find({job_id: job.id}, function (error, iamges) {
+                        if (error) {
+                            callback({
+                                code: 500,
+                                errors: 'Internal server error'
+                            });
+                        } else {
+                            resultObject.files = iamges.map(function (image) {
+                                return {
+                                    height: image.height,
+                                    width: image.width,
+                                    path: {
+                                        original: image.path_remote,
+                                        retrieve: util.format('%s/image?image_id=%s', makeBaseUrl(), image.id)
+                                    },
+                                    size: image.path,
+                                    content_type: image.content_type,
+                                    downloaded: image.created
+                                };
+                            });
+
+                            callback(null, resultObject);
+                        }
+                    });
+                } else {
+                    callback(null, resultObject);
+                }
+            }
+        ], function (error, job) {
+            if (error) {
+                res.status(error.code).json({
+                    status: 'ERROR',
+                    code: error.code,
+                    errors: error.errors
+                });
+            } else {
+                res.json({
+                    status: 'OK',
+                    code: 200,
+                    data: {
+                        job: job
+                    }
+                });
+            }
         });
     });
-
-    function getUrl(url) {
-        return [apiRoutePrefix, apiVersion].concat(url).join('/');
-    }
-
-    function makeValidationErrorArray(errors) {
-        return _.chain(errors).map(function (error) {
-            var errorObj = {};
-            errorObj[error.param] = error.msg;
-
-            return errorObj;
-        }).uniq(function (a, b) {
-            return JSON.stringify(a) === JSON.stringify(b);
-        }).value();
-    }
 };
+
+function makeValidationErrorArray(errors) {
+    return _.chain(errors).map(function (error) {
+        var errorObj = {};
+        errorObj[error.param] = error.msg;
+
+        return errorObj;
+    }).uniq(function (a, b) {
+        return JSON.stringify(a) === JSON.stringify(b);
+    }).value();
+}
+
+function getUrl(url) {
+    return [apiRoutePrefix, apiVersion].concat(url).join('/');
+}
+
+function makeBaseUrl() {
+    return util.format('%s://%s:%s',
+        config.get('express:proto'),
+        config.get('express:hostname'),
+        config.get('express:port'));
+}
+
+function findClient(jobId, clientId, callback) {
+    ClientModel.findById(clientId, function (error, client) {
+        if (error) {
+            callback({errors: 'Internal server error'});
+        } else {
+            callback(null, jobId, client)
+        }
+    });
+}
+
+function checkAccess(jobId, client, callback) {
+    JobModel.findById(jobId, function (error, job) {
+        if (error) {
+            callback({
+                code: 500,
+                errors: 'Internal server error'
+            });
+        } else if (!job) {
+            callback({
+                code: 404,
+                errors: 'Job not found'
+            });
+        } else if (job.client_id != client.id) {
+            callback({
+                code: 403,
+                errors: 'Access forbidden'
+            });
+        } else {
+            callback(null, job);
+        }
+    });
+}

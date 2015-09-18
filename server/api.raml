@@ -4,6 +4,27 @@ title: Image downloader job implemention
 baseUri: http://sizif.sansara.pp.ua/api/{version}
 version: v1
 traits:
+  - authRequired:
+      queryParameters:
+        access_token:
+          description: Access token which idedtifies client
+          required: true
+          type: string
+          example: 55fbb8f535d723065b0aa3c4
+      responses:
+        401:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 401,
+                  "errors": [
+                    {
+                      "access_token": "Invalid value"
+                    }
+                  ],
+                  "status": "ERROR"
+                }
   - hasInternalError:
       responses:
         500:
@@ -15,8 +36,27 @@ traits:
                   "errors": "Internal server error",
                   "status": "ERROR"
                 }:
+  - jobIdSpecifiedInQuery:
+      queryParameters:
+        job_id:
+          description: Job id which identifies requested job
+          required: true
+          type: string
+          example: 55fbdf0f4e73fb15759823c5
+  - hasAccessForbidded:
+      responses:
+        403:
+          body:
+            application/json:
+              example: |
+                {
+                  "code": 403,
+                  "errors": "Access forbidden",
+                  "status": "ERROR"
+                }
 
 /handshake:
+  is: [ hasInternalError ]
   post:
     description: |
       "Create new client and retrieve access token for using service"
@@ -31,18 +71,63 @@ traits:
                 "message": "Client created",
                 "status": "OK"
               }
-      500:
+/job:
+  is: [ authRequired, hasInternalError, jobIdSpecifiedInQuery, hasAccessForbidded ]
+  get:
+    description: |
+      "Retrieve full job info with files"
+    responses:
+      200:
         body:
           application/json:
             example: |
               {
-                "code": 500,
-                "errors": "Internal server error",
+                "code": 200,
+                "data": {
+                  "job": {
+                    "created": "2015-09-18T09:53:19.165Z",
+                    "files": [
+                      {
+                        "content_type": "image/jpeg",
+                        "downloaded": "2015-09-18T09:53:23.388Z",
+                        "height": 160,
+                        "path": {
+                            "original": "http://example.com/image009.jpg"
+                        },
+                        "width": 240
+                      },
+                      {
+                        "content_type": "image/jpeg",
+                        "downloaded": "2015-09-18T09:53:23.461Z",
+                        "height": 160,
+                        "path": {
+                            "original": "http://example.com/image008.jpg"
+                        },
+                        "width": 240
+                      }
+                    ],
+                    "id": "55fbdf0f4e73fb15759823c5",
+                    "status": "complete",
+                    "url": "http://pmg17.vn.ua/"
+                  }
+                },
+                  "status": "OK"
+              }
+      400:
+        body:
+          application/json:
+            example: |
+              {
+                "code": 400,
+                "errors": [
+                  {
+                    "job_id": "Invalid value"
+                  }
+                ],
                 "status": "ERROR"
               }
-/job:
   /make:
-    is: [ hasInternalError ]
+    is: [ authRequired, hasInternalError ]
     post:
       description: |
         "Make job for downloading images by page url"
@@ -50,7 +135,6 @@ traits:
         application/json:
           schema: |
             {
-              "access_token": "55f9d36dc793ccc60b93e5a5",
               "url": "http://google.com"
             }
       responses:
@@ -81,31 +165,11 @@ traits:
                   ],
                   "status": "ERROR"
                 }
-        401:
-          body:
-            application/json:
-              example: |
-                {
-                  "code": 401,
-                  "errors": [
-                    {
-                      "access_token": "Invalid value"
-                    }
-                  ],
-                  "status": "ERROR"
-                }
   /status:
-    is: [ hasInternalError ]
+    is: [ authRequired, hasInternalError, jobIdSpecifiedInQuery, hasAccessForbidded ]
     get:
       description: |
-        "Get job dounloading status"
-      body:
-        application/json:
-          schema: |
-            {
-              "access_token": "55fab68e2f70e71602187284",
-              "job_id": "55fab6c82f70e71602187285"
-            }
+        "Retrieve job dounloading status"
       responses:
         200:
           body:
@@ -121,28 +185,6 @@ traits:
                       "url": "http://google.com"
                     },
                     "status": "OK"
-                }
-        401:
-          body:
-            application/json:
-              example: |
-                {
-                  "code": 401,
-                  "errors": [
-                    {
-                        "access_token": "Access token should have 24 symbol"
-                    }
-                  ],
-                  "status": "ERROR"
-                }
-        403:
-          body:
-            application/json:
-              example: |
-                {
-                  "code": 403,
-                  "errors": "Access forbidden",
-                  "status": "ERROR"
                 }
         404:
           body:

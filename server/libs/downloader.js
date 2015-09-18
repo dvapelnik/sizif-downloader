@@ -5,6 +5,7 @@ var Promise = require('bluebird');
 var request = require('request');
 var requestPromise = require('request-promise');
 var cheerio = require('cheerio');
+var path = require('path');
 var url = require('url');
 var fs = require('fs');
 var fsPromise = require('fs-promise');
@@ -17,7 +18,11 @@ var ClientModel = require('./../libs/mongoose').ClientModel;
 var JobModel = require('./../libs/mongoose').JobModel;
 var ImageModel = require('./../libs/mongoose').ImageModel;
 
-var imageSavePath = [process.cwd(), 'server', config.get('storage:images')].join('/');
+var imageSavePath = path.normalize([
+    process.cwd(),
+    'server',
+    config.get('storage:images')
+].join('/'));
 
 log.debug(imageSavePath);
 

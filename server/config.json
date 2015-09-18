@@ -1,7 +1,8 @@
 {
   "express": {
-    "port": 3000,
-    "apiRoutePrefix": "/api"
+    "proto": "http",
+    "hostname": "localhost",
+    "port": 3000
   },
   "storage": {
     "images": "../storage/images"
