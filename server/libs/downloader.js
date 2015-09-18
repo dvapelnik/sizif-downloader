@@ -241,6 +241,8 @@ function updateJob(job) {
             if (error) {
                 reject(error);
             } else {
+                log.debug('Job status updated to %s', job.status);
+
                 resolve(job);
             }
         })

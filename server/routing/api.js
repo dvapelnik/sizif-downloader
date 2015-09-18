@@ -161,7 +161,15 @@ module.exports = function (app) {
                             new Buffer(JSON.stringify({
                                 jobId: job.id
                             })), {}, function () {
+                                job.status = JobModel.getStatusList().pending;
 
+                                job.save(function (error) {
+                                    if (error) {
+                                        log.error('Job saving error');
+                                    } else {
+                                        log.debug('Job status updated to %s', job.status);
+                                    }
+                                });
                             });
                     });
 
