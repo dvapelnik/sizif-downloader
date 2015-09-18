@@ -352,7 +352,7 @@ module.exports = function (app) {
                 })
             } else {
                 res.json({
-                    status: 'ERROR',
+                    status: 'OK',
                     code: 200,
                     data: {
                         jobs: jobList
