@@ -1,6 +1,7 @@
 var log = require('./../libs/log')(module);
 var config = require('./config');
 
+var Promise = require('bluebird');
 var request = require('request');
 var requestPromise = require('request-promise');
 var cheerio = require('cheerio');
@@ -55,7 +56,13 @@ function MainJob(jobId) {
                     resolve(job);
                 }
             });
-        }))
+        }))      // finding job
+            .then(function (job) {
+                job.status = JobModel.getStatusList().in_progress;
+
+                return job;
+            })                      // update status to in_progress
+            .then(updateJob)                                 // update job
             .then(function (job) {
                 log.info('Check directory is exists');
                 return fsPromise.exists([imageSavePath, job.id].join('/')).then(function (exists) {
@@ -64,7 +71,7 @@ function MainJob(jobId) {
                         job: job
                     }
                 });
-            })              // check directory is exists
+            })                      // check directory is exists
             .then(function (obj) {
                 log.verbose('Make dir');
                 if (obj.exists) {
@@ -74,13 +81,13 @@ function MainJob(jobId) {
                         return obj.job;
                     });
                 }
-            })              // make dir
+            })                      // make dir
             .then(function (job) {
                 log.verbose('Request HTML');
                 return requestPromise(job.url);
-            })              // request page
+            })                      // request page
             .then(function (html) {
-                log.verbose('Parsing HTML')
+                log.verbose('Parsing HTML');
                 var $ = cheerio.load(html);
 
                 var images = [];
@@ -94,7 +101,7 @@ function MainJob(jobId) {
                 });
 
                 return images;
-            })             // parse html
+            })                     // parse html
             .then(function (images) {
                 log.verbose('Making promises for Promise.all()');
                 var promises = images.map(function (image) {
@@ -108,7 +115,7 @@ function MainJob(jobId) {
                                 size: response.headers['content-length'],
                                 content_type: response.headers['content-type']
                             });
-                        })
+                        })        // make image model
                         .then(function (imageModel) {
                             log.verbose('Piping image');
 
@@ -129,57 +136,95 @@ function MainJob(jobId) {
 
                                 request(imageModel.path_remote).pipe(destination);
                             });
-                        })
-                        .then(function (imageModel) {
-                            return new Promise(function (resolve, reject) {
-                                log.verbose('Get image size in created Promise');
-                                sizeOf(imageModel.path_local, function (error, dimensions) {
-                                    if (error) {
-                                        reject(error);
-                                    } else {
-                                        imageModel.width = dimensions.width;
-                                        imageModel.height = dimensions.height;
-
-                                        resolve(imageModel);
-                                    }
-                                });
-                            });
-                        })
-                        .then(function (imageModel) {
-                            return new Promise(function (resolve, reject) {
-                                imageModel.save(function (error) {
-                                    if (error) {
-                                        reject(error);
-                                    } else {
-                                        resolve(imageModel);
-                                    }
-                                })
-                            })
-                        })
-                        .catch(function (error) {
-                            log.verbose('>>> Error coach');
-
-                            log.error(error);
-
-                            throw error;
-                        });
+                        })      // piping image
+                        .catch(reThrow);
                 });
 
-                return Promise.all(promises).then(function (images) {
-                    log.verbose('>>> All image promises resolved. Returning images');
+                return Promise.settle(promises).then(function (images) {
+                    log.verbose('Settling batch image promises');
+                    var fulfilled = [];
 
-                    return images;
+                    images.map(function (image) {
+                        if (image.isFulfilled()) {
+                            fulfilled.push(image.value());
+                        }
+                        if (image.isRejected()) {
+                            log.error([image.reason().name, image.reason().statusCode].join(': '));
+                        }
+                    });
+
+                    return fulfilled;
                 });
-            })
+            })                   // batch images make object and pipe to file
             .then(function (images) {
-                console.log(images);
+                var imagePromises = images.map(function (imageModel) {
+                    return (new Promise(function (resolve, reject) {
+                        log.verbose('Get image size in created Promise');
+                        sizeOf(imageModel.path_local, function (error, dimensions) {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                imageModel.width = dimensions.width;
+                                imageModel.height = dimensions.height;
 
-                return {};
-            })
+                                resolve(imageModel);
+                            }
+                        });
+                    }));
+                });
+
+                return Promise.settle(imagePromises).then(function (images) {
+                    var fulfilled = [];
+
+                    images.map(function (image) {
+                        if (image.isFulfilled()) {
+                            fulfilled.push(image.value());
+                        }
+                        if (image.isRejected()) {
+                            console.log(image.reason());
+                        }
+                    });
+
+                    return fulfilled;
+                });
+            })                   // batch get image size
+            .then(function (images) {
+                var imagesSavePromises = images.map(function (imageModel) {
+                    return new Promise(function (resolve, reject) {
+                        imageModel.save(function (error) {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve(imageModel);
+                            }
+                        });
+                    });
+                });
+
+                return Promise.settle(imagesSavePromises).then(function (images) {
+                    var fulfilled = [];
+
+                    images.map(function (image) {
+                        if (image.isFulfilled()) {
+                            fulfilled.push(image.value());
+                        } else {
+                            console.log(image.reason());
+                        }
+                    });
+
+                    return fulfilled;
+                })
+            })                   // batch saving models into mongodb
             .then(function () {
+                that.job.status = JobModel.getStatusList().complete;
+
+                return that.job;
+            })                         // update status to complete
+            .then(updateJob)                                 // update job
+            .then(function (job) {
                 log.verbose('Complete');
                 callback();
-            })
+            })                      // complete
             .catch(function (error) {
                 log.debug(error);
             });
@@ -188,4 +233,19 @@ function MainJob(jobId) {
 
 function reThrow(error) {
     throw error;
+}
+
+function updateJob(job) {
+    return (new Promise(function (resolve, reject) {
+        job.save(function (error) {
+            if (error) {
+                reject(error);
+            } else {
+                resolve(job);
+            }
+        })
+    }))
+        .then(function (job) {
+            return job;
+        }).catch(reThrow);
 }
