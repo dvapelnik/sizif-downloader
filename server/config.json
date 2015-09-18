@@ -3,11 +3,28 @@
     "port": 3000,
     "apiRoutePrefix": "/api"
   },
+  "storage": {
+    "images": "../storage/images"
+  },
   "api": {
     "routePrefix": "/api",
     "version": "v1"
   },
   "mongoose": {
     "uri": "mongodb://localhost/sizif"
+  },
+  "amqp": {
+    "uri": "amqp://localhost",
+    "host": "localhost",
+    "queue": {
+      "mainJob": {
+        "name": "sizif-main-job",
+        "limit": 1
+      },
+      "imageJob": {
+        "name": "sizif-image-job",
+        "limit": 5
+      }
+    }
   }
 }

@@ -1,9 +1,13 @@
+var util = require('util');
+
 var log = require('./../libs/log')(module);
+var config = require('./../libs/config');
 var async = require('async');
 var _ = require('underscore');
 var expressValidator = require('express-validator');
-
 var mongooseConnection = require('./../libs/mongoose').connection;
+var amqpConnection = require('./../libs/amqp').connection;
+var downloader = require('./../libs/downloader');
 
 var ClientModel = require('./../libs/mongoose').ClientModel;
 var JobModel = require('./../libs/mongoose').JobModel;
@@ -18,7 +22,6 @@ module.exports = function (app) {
     app.use(expressValidator({
         customValidators: {
             clientIsAvailable: function (value) {
-                console.log('Promise');
                 return new Promise(function (resolve, reject) {
                     if (mongooseConnection.readyState) {
                         ClientModel.findById(value, function (error, client) {
@@ -144,6 +147,25 @@ module.exports = function (app) {
                         callback(error, job);
                     }
                 });
+            },
+            function (job, callback) {
+                amqpConnection
+                    .then(function (connection) {
+                        return connection.createConfirmChannel(config.get('amqp:queue:mainJob:name'));
+                    }).
+                    then(function (channel) {
+                        channel.prefetch(config.get('amqp:queue:mainJob:limit'));
+                        channel.assertQueue(config.get('amqp:queue:mainJob:name'));
+                        channel.sendToQueue(
+                            config.get('amqp:queue:mainJob:name'),
+                            new Buffer(JSON.stringify({
+                                jobId: job.id
+                            })), {}, function () {
+
+                            });
+                    });
+
+                callback(null, job);
             }
         ], function (error, job) {
             if (error) {

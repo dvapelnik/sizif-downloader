@@ -1,3 +1,6 @@
+/storage/images
+!/storage/images/.gitkeep
+
 ### Node template
 # Logs
 logs
