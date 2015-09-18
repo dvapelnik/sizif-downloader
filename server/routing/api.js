@@ -51,11 +51,13 @@ module.exports = function (app) {
         if ([
                 getUrl(['handshake'])
             ].indexOf(req.originalUrl) === -1) {
-            req.checkBody('access_token',
+            console.log(req.query);
+            console.log(req.originalUrl);
+            req.checkQuery('access_token',
                 'Access token is not defined').notEmpty();
-            req.checkBody('access_token',
+            req.checkQuery('access_token',
                 'Access token should have 24 symbol').isLength([24]);
-            req.checkBody('access_token',
+            req.checkQuery('access_token',
                 'Client not found or internal server error occurred').clientIsAvailable();
 
             req.asyncValidationErrors()
@@ -81,7 +83,7 @@ module.exports = function (app) {
         next();
     });
 
-    // POST:/api/handshake
+    // POST:/api/v1/handshake
     app.post(getUrl('handshake'), function (req, res) {
         var client = new ClientModel;
         client.save(function (err) {
@@ -108,7 +110,7 @@ module.exports = function (app) {
         });
     });
 
-    // POST:/api/job/make
+    // POST:/api/v1/job/make
     app.post(getUrl(['job', 'make']), function (req, res) {
         async.waterfall([
             function (callback) {
@@ -197,17 +199,17 @@ module.exports = function (app) {
         });
     });
 
-    // GET:/api/job/status
+    // GET:/api/v1/job/status
     app.get(getUrl(['job', 'status']), function (req, res) {
         async.waterfall([
                 function (callback) {
-                    req.checkBody('job_id')
+                    req.checkQuery('job_id')
                         .notEmpty()
                         .isLength([24]);
 
                     req.asyncValidationErrors()
                         .then(function () {
-                            callback(null, req.body.job_id, req.body.access_token);
+                            callback(null, req.query.job_id, req.query.access_token);
                         })
                         .catch(function (errors) {
                             callback({
@@ -269,6 +271,24 @@ module.exports = function (app) {
                 }
             }
         )
+    });
+
+    // GET:/api/v1/job/:id
+    app.get(getUrl(['job']), function (req, res) {
+        async.waterfall([
+            function (callback) {
+                req.checkBody('id')
+                    .notEmpty()
+                    .isLength([24]);
+
+                req.asyncValidationErrors()
+                    .then(function () {
+                        callback(null, req.body.job_id, req.body.access_token)
+                    })
+            }
+        ], function (error, result) {
+
+        });
     });
 
     function getUrl(url) {
