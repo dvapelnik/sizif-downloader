@@ -10,6 +10,8 @@ var log = require('./libs/log')(module);
 
 var app = express();
 
+app.disable('etag');
+
 app.use(bodyParser.json());
 app.use(methodOverride('X-HTTP-Method-Override'));
 app.use(expressValidator());
