@@ -235,7 +235,7 @@ function MainJob(jobId) {
             .catch(function (error) {
                 log.error(error);
                 console.log(error);
-                that.job.status = JobModel.getStatusList();
+                that.job.status = JobModel.getStatusList().error;
                 that.job.save();
             }).finally(function () {
                 log.verbose('Complete');

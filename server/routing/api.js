@@ -7,7 +7,6 @@ var _ = require('underscore');
 
 var mongooseConnection = require('./../libs/mongoose').connection;
 var amqpConnection = require('./../libs/amqp').connection;
-//var downloader = require('./../libs/downloader');
 
 var makeBaseUrl = require('./../libs/appUtil').makeBaseUrl;
 
@@ -130,8 +129,8 @@ module.exports = function (app) {
                 amqpConnection
                     .then(function (connection) {
                         return connection.createConfirmChannel(config.get('amqp:queue:mainJob:name'));
-                    }).
-                    then(function (channel) {
+                    })
+                    .then(function (channel) {
                         channel.prefetch(config.get('amqp:queue:mainJob:limit'));
                         channel.assertQueue(config.get('amqp:queue:mainJob:name'));
                         channel.sendToQueue(
@@ -140,14 +139,7 @@ module.exports = function (app) {
                                 jobId: job.id
                             })), {}, function () {
                                 job.status = JobModel.getStatusList().pending;
-
-                                job.save(function (error) {
-                                    if (error) {
-                                        log.error('Job saving error');
-                                    } else {
-                                        log.debug('Job status updated to %s', job.status);
-                                    }
-                                });
+                                job.save();
                             });
                     });
 
@@ -304,24 +296,24 @@ module.exports = function (app) {
                     .find({client_id: req.query.access_token})
                     .sort({created: -1})
                     .exec(function (error, jobs) {
-                    if (error) {
-                        callback({
-                            code: 500,
-                            errors: 'Internal error'
-                        });
-                    } else {
-                        var jobList = jobs.map(function (job) {
-                            return {
-                                id: job.id,
-                                status: job.status,
-                                url: job.url,
-                                created: job.created
-                            }
-                        });
+                        if (error) {
+                            callback({
+                                code: 500,
+                                errors: 'Internal error'
+                            });
+                        } else {
+                            var jobList = jobs.map(function (job) {
+                                return {
+                                    id: job.id,
+                                    status: job.status,
+                                    url: job.url,
+                                    created: job.created
+                                }
+                            });
 
-                        callback(null, jobList);
-                    }
-                })
+                            callback(null, jobList);
+                        }
+                    })
             }
         ], function (error, jobList) {
             if (error) {

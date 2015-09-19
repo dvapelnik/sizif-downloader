@@ -6,15 +6,14 @@ var WorkPlace = React.createClass({
                 'margin-top': '100px'
             },
             jobList: [],
-            ajaxIsActive: false
+            ajaxIsActive: false,
+            timeOut: 2000
         };
     },
     componentDidMount: function () {
-        this.timer = setInterval(this.tick, 2000);
         this.tick();
     },
     componentWillUnmount: function () {
-        clearInterval(this.timer);
     },
     tick: function () {
         var that = this;
@@ -22,14 +21,34 @@ var WorkPlace = React.createClass({
         $.ajax({
             type: 'get',
             url: '/job/list',
+            beforeSend: function () {
+                that.setState({ajaxIsActive: true});
+            },
             success: function (data) {
                 if (data.status == 'OK' && data.data) {
                     that.setState({
                         jobList: data.data
                     });
                 }
+
+                setTimeout(that.tick, that.state.timeOut);
+            },
+            complete: function () {
+                that.setState({ajaxIsActive: false});
             }
         })
+    },
+    getAjaxStatus: function () {
+        var className = this.state.ajaxIsActive
+            ? 'label label-warning'
+            : 'label label-success';
+        var message = this.state.ajaxIsActive
+            ? 'Updating...'
+            : 'Updated';
+
+        return (
+            <span className={className}>{message}</span>
+        );
     },
     handleChangeUrlField: function (event) {
         this.setState({
@@ -48,6 +67,9 @@ var WorkPlace = React.createClass({
             data: JSON.stringify({
                 url: url
             }),
+            beforeSend: function () {
+                that.setState({ajaxIsActive: true});
+            },
             success: function (data) {
                 $.growl.notice({message: 'Complete!'});
                 that.setState({url: ''});
@@ -61,6 +83,9 @@ var WorkPlace = React.createClass({
                     title: 'Error occurred!',
                     message: data.message
                 });
+            },
+            complete: function () {
+                that.setState({ajaxIsActive: false});
             }
         });
     },
@@ -102,13 +127,17 @@ var WorkPlace = React.createClass({
                         </div>
                     </div>
                     <div className="row">
+                        <div className="col-md-8 col-md-offset-2" style={{'text-align':'right'}}>
+                            {this.getAjaxStatus()}
+                        </div>
+                    </div>
+                    <div className="row">
                         <div className="col-md-8 col-md-offset-2">
                             <table className="table table-hover">
                                 <thead>
                                 <tr>
                                     <th>#</th>
                                     <th>URL</th>
-                                    <th>Created</th>
                                     <th>Images</th>
                                     <th>Status</th>
                                 </tr>
@@ -186,7 +215,6 @@ var WorkPlace = React.createClass({
                                                         }
                                                     </a>
                                                 </td>
-                                                <td>{job.created}</td>
                                                 <td>{images}</td>
                                                 <td>
                                                     <span className={'label label-'+statusClass}>
@@ -206,7 +234,6 @@ var WorkPlace = React.createClass({
         );
     }
 });
-
 
 React.render(
     <WorkPlace/>, document.getElementById('view-point')
