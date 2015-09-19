@@ -2,7 +2,7 @@
   "express": {
     "proto": "http",
     "hostname": "localhost",
-    "port": 3000
+    "port": 8888
   },
   "storage": {
     "images": "../storage/images"

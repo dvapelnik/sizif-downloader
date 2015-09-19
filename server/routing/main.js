@@ -192,6 +192,9 @@ module.exports = function (app) {
                         }
                     })
                     .catch(function (error) {
+                        if (error.name == 'StatusCodeError' && error.statusCode == 401) {
+                            req.session = null;
+                        }
                         callback(error);
                     });
             },
