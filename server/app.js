@@ -4,7 +4,12 @@ var express = require('express');
 var path = require('path');
 var bodyParser = require('body-parser');
 var methodOverride = require('method-override');
+
+var validator = require('validator');
 var expressValidator = require('express-validator');
+
+var mongooseConnection = require('./libs/mongoose').connection;
+var ClientModel = require('./libs/mongoose').ClientModel;
 
 var log = require('./libs/log')(module);
 
@@ -14,7 +19,35 @@ app.disable('etag');
 
 app.use(bodyParser.json());
 app.use(methodOverride('X-HTTP-Method-Override'));
-app.use(expressValidator());
+app.use(expressValidator({
+    customValidators: {
+        clientIsAvailable: function (value) {
+            return new Promise(function (resolve, reject) {
+                if (mongooseConnection.readyState) {
+                    ClientModel.findById(value, function (error, client) {
+                        if (!client) {
+                            reject({error: {code: 404, errors: 'Client not found'}});
+                            return;
+                        }
+
+                        if (error) {
+                            reject({error: error});
+                            return;
+                        }
+
+                        resolve(client);
+                    });
+                } else {
+                    reject({error: {code: 500, errors: 'Internal server error'}})
+                }
+
+            })
+        },
+        isURL: function (value) {
+            return validator.isURL(value, {require_protocol: true});
+        }
+    }
+}));
 
 require('./routing/main')(app);
 require('./routing/api')(app);

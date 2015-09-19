@@ -4,10 +4,12 @@ var log = require('./../libs/log')(module);
 var config = require('./../libs/config');
 var async = require('async');
 var _ = require('underscore');
-var expressValidator = require('express-validator');
+
 var mongooseConnection = require('./../libs/mongoose').connection;
 var amqpConnection = require('./../libs/amqp').connection;
 var downloader = require('./../libs/downloader');
+
+var makeBaseUrl = require('./../libs/appUtil').makeBaseUrl;
 
 var ClientModel = require('./../libs/mongoose').ClientModel;
 var JobModel = require('./../libs/mongoose').JobModel;
@@ -17,41 +19,11 @@ var apiRoutePrefix = config.get('api:routePrefix');
 var apiVersion = config.get('api:version');
 
 module.exports = function (app) {
-    // Custom validators
-    app.use(expressValidator({
-        customValidators: {
-            clientIsAvailable: function (value) {
-                return new Promise(function (resolve, reject) {
-                    if (mongooseConnection.readyState) {
-                        ClientModel.findById(value, function (error, client) {
-                            if (!client) {
-                                reject({error: {code: 404, errors: 'Client not found'}});
-                                return;
-                            }
-
-                            if (error) {
-                                reject({error: error});
-                                return;
-                            }
-
-                            resolve(client);
-                        });
-                    } else {
-                        reject({error: {code: 500, errors: 'Internal server error'}})
-                    }
-
-                })
-            }
-        }
-    }));
-
     // Access token checking middlware
     app.use(apiRoutePrefix, function (req, res, next) {
         if ([
                 getUrl(['handshake'])
             ].indexOf(req.originalUrl) === -1) {
-            console.log(req.query);
-            console.log(req.originalUrl);
             req.checkQuery('access_token',
                 'Access token is not defined').notEmpty();
             req.checkQuery('access_token',
@@ -117,7 +89,8 @@ module.exports = function (app) {
     app.post(getUrl(['job', 'make']), function (req, res) {
         async.waterfall([
             function (callback) {
-                req.checkBody('url', 'Url is invalid').notEmpty();
+                req.checkBody('url', 'Url is empty').notEmpty();
+                req.checkBody('url', 'Url is invalid').isURL();
 
                 req.asyncValidationErrors()
                     .then(function () {
@@ -327,7 +300,10 @@ module.exports = function (app) {
     app.get(getUrl(['job', 'list']), function (req, res) {
         async.waterfall([
             function (callback) {
-                JobModel.find({client_id: req.query.access_token}, function (error, jobs) {
+                JobModel
+                    .find({client_id: req.query.access_token})
+                    .sort({created: -1})
+                    .exec(function (error, jobs) {
                     if (error) {
                         callback({
                             code: 500,
@@ -380,13 +356,6 @@ function makeValidationErrorArray(errors) {
 
 function getUrl(url) {
     return [apiRoutePrefix, apiVersion].concat(url).join('/');
-}
-
-function makeBaseUrl() {
-    return util.format('%s://%s:%s',
-        config.get('express:proto'),
-        config.get('express:hostname'),
-        config.get('express:port'));
 }
 
 function findClient(jobId, clientId, callback) {

@@ -1,5 +1,7 @@
-/storage/images
+/storage/images/*
 !/storage/images/.gitkeep
+/public/assets/*
+!/public/assets/.gitkeep
 
 ### Node template
 # Logs
@@ -78,4 +80,12 @@ atlassian-ide-plugin.xml
 com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
+
+### Yeoman template
+node_modules/
+bower_components/
+*.log
+
+build/
+dist/
 

@@ -1,6 +1,8 @@
 var log = require('./../libs/log')(module);
 var config = require('./config');
 
+var _ = require('underscore');
+
 var Promise = require('bluebird');
 var request = require('request');
 var requestPromise = require('request-promise');
@@ -23,8 +25,6 @@ var imageSavePath = path.normalize([
     'server',
     config.get('storage:images')
 ].join('/'));
-
-log.debug(imageSavePath);
 
 amqpConnection
     .then(function (connection) {
@@ -89,7 +89,11 @@ function MainJob(jobId) {
             })                      // make dir
             .then(function (job) {
                 log.verbose('Request HTML');
-                return requestPromise(job.url);
+                return requestPromise(job.url)
+                    .then(function (html) {
+                        return html;
+                    })
+                    .catch(reThrow);
             })                      // request page
             .then(function (html) {
                 log.verbose('Parsing HTML');
@@ -105,7 +109,7 @@ function MainJob(jobId) {
                     images.push(url.resolve(that.job.url, src));
                 });
 
-                return images;
+                return _.uniq(images);
             })                     // parse html
             .then(function (images) {
                 log.verbose('Making promises for Promise.all()');
@@ -227,11 +231,15 @@ function MainJob(jobId) {
             })                         // update status to complete
             .then(updateJob)                                 // update job
             .then(function (job) {
-                log.verbose('Complete');
-                callback();
             })                      // complete
             .catch(function (error) {
-                log.debug(error);
+                log.error(error);
+                console.log(error);
+                that.job.status = JobModel.getStatusList();
+                that.job.save();
+            }).finally(function () {
+                log.verbose('Complete');
+                callback();
             });
     };
 }
