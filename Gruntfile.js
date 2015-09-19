@@ -17,13 +17,9 @@ module.exports = function (grunt) {
                 files: {
                     'js/jquery.min.js': 'jquery/dist/jquery.min.js',
                     'js/react-with-addons.min.js': 'react/react-with-addons.min.js',
-                    'js/jsx.js': 'requirejs-react-jsx/jsx.js',
                     'bootstrap/js/bootstrap.min.js': 'bootstrap/dist/js/bootstrap.min.js',
                     'growl/js/jquery.growl.js': 'growl/javascripts/jquery.growl.js'
                 }
-            },
-            images: {
-                files: {}
             },
             fonts: {
                 files: {
