@@ -1,5 +1,5 @@
-var log = require('./../libs/log')(module);
-var config = require('./config');
+var log = require('./libs/log')(module);
+var config = require('./libs/config');
 
 var _ = require('underscore');
 
@@ -14,11 +14,11 @@ var fsPromise = require('fs-promise');
 var mime = require('mime-types');
 var sizeOf = require('image-size');
 
-var amqpConnection = require('./../libs/amqp').connection;
+var amqpConnection = require('./libs/amqp').connection;
 
-var ClientModel = require('./../libs/mongoose').ClientModel;
-var JobModel = require('./../libs/mongoose').JobModel;
-var ImageModel = require('./../libs/mongoose').ImageModel;
+var ClientModel = require('./libs/mongoose').ClientModel;
+var JobModel = require('./libs/mongoose').JobModel;
+var ImageModel = require('./libs/mongoose').ImageModel;
 
 var imageSavePath = path.normalize([
     process.cwd(),

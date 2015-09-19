@@ -7,7 +7,7 @@ var _ = require('underscore');
 
 var mongooseConnection = require('./../libs/mongoose').connection;
 var amqpConnection = require('./../libs/amqp').connection;
-var downloader = require('./../libs/downloader');
+//var downloader = require('./../libs/downloader');
 
 var makeBaseUrl = require('./../libs/appUtil').makeBaseUrl;
 
