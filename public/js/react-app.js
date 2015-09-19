@@ -8,7 +8,7 @@ var WorkPlace = React.createClass({
             },
             jobList: [],
             ajaxIsActive: false,
-            timeOut: 2000
+            secondsBetweenUpdates: 2
         };
     },
     componentDidMount: function () {
@@ -17,6 +17,13 @@ var WorkPlace = React.createClass({
     componentWillUnmount: function () {
     },
     tick: function () {
+        this.updateList(true);
+    },
+    updateList: function (initializeNextTick) {
+        initializeNextTick = initializeNextTick === undefined
+            ? false
+            : initializeNextTick;
+
         var that = this;
 
         $.ajax({
@@ -32,12 +39,14 @@ var WorkPlace = React.createClass({
                     });
                 }
 
-                setTimeout(that.tick, that.state.timeOut);
+                if (initializeNextTick) {
+                    setTimeout(that.tick, that.state.secondsBetweenUpdates * 1000);
+                }
             },
             complete: function () {
                 that.setState({ajaxIsActive: false});
             }
-        })
+        });
     },
     getAjaxStatus: function () {
         var className = this.state.ajaxIsActive
@@ -50,6 +59,11 @@ var WorkPlace = React.createClass({
         return (
             React.createElement("span", {className: className}, message)
         );
+    },
+    handleChangeUpdateInterval: function (event) {
+        this.setState({
+            secondsBetweenUpdates: event.target.value
+        });
     },
     handleChangeUrlField: function (event) {
         this.setState({
@@ -106,10 +120,24 @@ var WorkPlace = React.createClass({
         };
 
         return (
-            React.createElement("div", {className: "row", style: this.state.containerStyle},
+            React.createElement("div", {className: "row"},
                 React.createElement("div", {className: "col-md-12"},
                     React.createElement("div", {className: "row"},
-                        React.createElement("div", {className: "col-md-6 col-md-offset-3"},
+                        React.createElement("div", {className: "col-md-8 col-md-offset-2 jumbotron"},
+                            React.createElement("h1", {
+                                style: {
+                                    'font-size': '2.3em',
+                                    'text-align': 'center'
+                                }
+                            }, "Sizif Downloader"),
+
+                            React.createElement("p", {style: {'text-align': 'center'}},
+                                "Download images from web page is easy: make job and wait.."
+                            )
+                        )
+                    ),
+                    React.createElement("div", {className: "row"},
+                        React.createElement("div", {className: "col-md-6 col-md-offset-3"}, 
                             React.createElement("div", {className: "input-group"}, 
                                 React.createElement("input", {
                                     value: this.state.url,
@@ -129,11 +157,24 @@ var WorkPlace = React.createClass({
                             )
                         )
                     ),
-                    React.createElement("div", {className: "row"},
-                        React.createElement("div", {
-                                className: "col-md-8 col-md-offset-2",
-                                style: {'text-align': 'right'}
-                            },
+                    React.createElement("div", {className: "row", style: {'margin-top': '10px'}},
+                        React.createElement("div", {className: "col-md-4 col-md-offset-5"},
+                            React.createElement("div", {class: "form-group"},
+                                React.createElement("label", {class: "control-label"}, "Seconds between list updates"),
+                                " ",
+                                React.createElement("select", {
+                                        className: "form-control",
+                                        style: {width: 'auto', display: 'inline-block'},
+                                        value: this.state.secondsBetweenUpdates,
+                                        onChange: this.handleChangeUpdateInterval
+                                    },
+                                    React.createElement("option", {value: "1"}, "1 second"),
+                                    React.createElement("option", {value: "2"}, "2 seconds"),
+                                    React.createElement("option", {value: "5"}, "5 seconds")
+                                )
+                            )
+                        ),
+                        React.createElement("div", {className: "col-md-1", style: {'text-align': 'left'}},
                             this.getAjaxStatus()
                         )
                     ),
@@ -147,7 +188,7 @@ var WorkPlace = React.createClass({
                                         React.createElement("th", null, "Images"),
                                         React.createElement("th", null, "Status")
                                     )
-                                ),
+                                ), 
                                 React.createElement("tbody", null, 
                                 
                                     this.state.jobList.map(function (job, index) {

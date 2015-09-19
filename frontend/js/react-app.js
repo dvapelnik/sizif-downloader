@@ -7,7 +7,7 @@ var WorkPlace = React.createClass({
             },
             jobList: [],
             ajaxIsActive: false,
-            timeOut: 2000
+            secondsBetweenUpdates: 2
         };
     },
     componentDidMount: function () {
@@ -16,6 +16,13 @@ var WorkPlace = React.createClass({
     componentWillUnmount: function () {
     },
     tick: function () {
+        this.updateList(true);
+    },
+    updateList: function (initializeNextTick) {
+        initializeNextTick = initializeNextTick === undefined
+            ? false
+            : initializeNextTick;
+
         var that = this;
 
         $.ajax({
@@ -31,12 +38,14 @@ var WorkPlace = React.createClass({
                     });
                 }
 
-                setTimeout(that.tick, that.state.timeOut);
+                if (initializeNextTick) {
+                    setTimeout(that.tick, that.state.secondsBetweenUpdates * 1000);
+                }
             },
             complete: function () {
                 that.setState({ajaxIsActive: false});
             }
-        })
+        });
     },
     getAjaxStatus: function () {
         var className = this.state.ajaxIsActive
@@ -49,6 +58,11 @@ var WorkPlace = React.createClass({
         return (
             <span className={className}>{message}</span>
         );
+    },
+    handleChangeUpdateInterval: function (event) {
+        this.setState({
+            secondsBetweenUpdates: event.target.value
+        });
     },
     handleChangeUrlField: function (event) {
         this.setState({
@@ -105,8 +119,17 @@ var WorkPlace = React.createClass({
         };
 
         return (
-            <div className="row" style={this.state.containerStyle}>
+            <div className="row">
                 <div className="col-md-12">
+                    <div className="row">
+                        <div className="col-md-8 col-md-offset-2 jumbotron">
+                            <h1 style={{'font-size':'2.3em', 'text-align':'center'}}>Sizif Downloader</h1>
+
+                            <p style={{'text-align':'center'}}>
+                                Download images from web page is easy: make job and wait..
+                            </p>
+                        </div>
+                    </div>
                     <div className="row">
                         <div className="col-md-6 col-md-offset-3">
                             <div className="input-group">
@@ -126,8 +149,23 @@ var WorkPlace = React.createClass({
                             </div>
                         </div>
                     </div>
-                    <div className="row">
-                        <div className="col-md-8 col-md-offset-2" style={{'text-align':'right'}}>
+                    <div className="row" style={{'margin-top':'10px'}}>
+                        <div className="col-md-4 col-md-offset-5">
+                            <div class="form-group">
+                                <label class="control-label">Seconds between list updates</label>
+                                &nbsp;
+                                <select
+                                    className="form-control"
+                                    style={{width:'auto', display:'inline-block'}}
+                                    value={this.state.secondsBetweenUpdates}
+                                    onChange={this.handleChangeUpdateInterval}>
+                                    <option value="1">1 second</option>
+                                    <option value="2">2 seconds</option>
+                                    <option value="5">5 seconds</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="col-md-1" style={{'text-align':'left'}}>
                             {this.getAjaxStatus()}
                         </div>
                     </div>
