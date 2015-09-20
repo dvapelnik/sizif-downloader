@@ -9,6 +9,6 @@ module.exports = {
 
         return port
             ? util.format('%s://%s:%s', proto, hostname, port)
-            : util.format('%s://%s:%s', proto, hostname);
+            : util.format('%s://%s', proto, hostname);
     }
 };
