@@ -3,9 +3,11 @@ var config = require('./config');
 
 module.exports = {
     makeBaseUrl: function () {
-        return util.format('%s://%s:%s',
-            config.get('express:proto'),
-            config.get('express:hostname'),
-            config.get('express:port'));
+        return util.format(config.get('http:port')
+                ? '%s://%s:%s'
+                : '%s://%s',
+            config.get('http:proto'),
+            config.get('http:hostname'),
+            config.get('http:port'));
     }
 };
