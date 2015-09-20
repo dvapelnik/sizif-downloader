@@ -3,11 +3,12 @@ var config = require('./config');
 
 module.exports = {
     makeBaseUrl: function () {
-        return util.format(config.get('http:port')
-                ? '%s://%s:%s'
-                : '%s://%s',
-            config.get('http:proto'),
-            config.get('http:hostname'),
-            config.get('http:port'));
+        var proto = config.get('http:proto');
+        var hostname = config.get('http:hostname');
+        var port = config.get('http:port');
+
+        return port
+            ? util.format('%s://%s:%s', proto, hostname, port)
+            : util.format('%s://%s:%s', proto, hostname);
     }
 };
