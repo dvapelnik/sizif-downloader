@@ -7,6 +7,7 @@ var WorkPlace = React.createClass({
             },
             jobList: [],
             ajaxIsActive: false,
+            listIsUpdated: false,
             secondsBetweenUpdates: 2
         };
     },
@@ -29,31 +30,46 @@ var WorkPlace = React.createClass({
             type: 'get',
             url: '/job/list',
             beforeSend: function () {
-                that.setState({ajaxIsActive: true});
+                that.setState({
+                    ajaxIsActive: true,
+                    listIsUpdated: false
+                });
             },
             success: function (data) {
                 if (data.status == 'OK' && data.data) {
                     that.setState({
-                        jobList: data.data
+                        jobList: data.data,
+                        secondsBetweenUpdates: 2,
+                        listIsUpdated: true
                     });
                 }
-
+            },
+            complete: function () {
                 if (initializeNextTick) {
                     setTimeout(that.tick, that.state.secondsBetweenUpdates * 1000);
                 }
             },
-            complete: function () {
-                that.setState({ajaxIsActive: false});
+            error: function () {
+                that.setState({
+                    secondsBetweenUpdates: that.state.secondsBetweenUpdates * 2
+                });
+
+                if (that.state.secondsBetweenUpdates > 60) {
+                    $.growl.error({
+                        title: 'Ooops..!',
+                        message: 'Update list action error occurred..'
+                    });
+                }
             }
         });
     },
     getAjaxStatus: function () {
-        var className = this.state.ajaxIsActive
-            ? 'label label-warning'
-            : 'label label-success';
-        var message = this.state.ajaxIsActive
-            ? 'Updating...'
-            : 'Updated';
+        var className = this.state.listIsUpdated
+            ? 'label label-success'
+            : 'label label-warning';
+        var message = this.state.listIsUpdated
+            ? 'Updated'
+            : 'Updating';
 
         return (
             <span className={className}>{message}</span>
@@ -150,22 +166,7 @@ var WorkPlace = React.createClass({
                         </div>
                     </div>
                     <div className="row" style={{'margin-top':'10px'}}>
-                        <div className="col-md-4 col-md-offset-5">
-                            <div class="form-group">
-                                <label class="control-label">Seconds between list updates</label>
-                                &nbsp;
-                                <select
-                                    className="form-control"
-                                    style={{width:'auto', display:'inline-block'}}
-                                    value={this.state.secondsBetweenUpdates}
-                                    onChange={this.handleChangeUpdateInterval}>
-                                    <option value="1">1 second</option>
-                                    <option value="2">2 seconds</option>
-                                    <option value="5">5 seconds</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="col-md-1" style={{'text-align':'left'}}>
+                        <div className="col-md-1 col-md-offset-9" style={{'text-align':'center'}}>
                             {this.getAjaxStatus()}
                         </div>
                     </div>

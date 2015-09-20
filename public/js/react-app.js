@@ -8,6 +8,7 @@ var WorkPlace = React.createClass({
             },
             jobList: [],
             ajaxIsActive: false,
+            listIsUpdated: false,
             secondsBetweenUpdates: 2
         };
     },
@@ -30,31 +31,46 @@ var WorkPlace = React.createClass({
             type: 'get',
             url: '/job/list',
             beforeSend: function () {
-                that.setState({ajaxIsActive: true});
+                that.setState({
+                    ajaxIsActive: true,
+                    listIsUpdated: false
+                });
             },
             success: function (data) {
                 if (data.status == 'OK' && data.data) {
                     that.setState({
-                        jobList: data.data
+                        jobList: data.data,
+                        secondsBetweenUpdates: 2,
+                        listIsUpdated: true
                     });
                 }
-
+            },
+            complete: function () {
                 if (initializeNextTick) {
                     setTimeout(that.tick, that.state.secondsBetweenUpdates * 1000);
                 }
             },
-            complete: function () {
-                that.setState({ajaxIsActive: false});
+            error: function () {
+                that.setState({
+                    secondsBetweenUpdates: that.state.secondsBetweenUpdates * 2
+                });
+
+                if (that.state.secondsBetweenUpdates > 60) {
+                    $.growl.error({
+                        title: 'Ooops..!',
+                        message: 'Update list action error occurred..'
+                    });
+                }
             }
         });
     },
     getAjaxStatus: function () {
-        var className = this.state.ajaxIsActive
-            ? 'label label-warning'
-            : 'label label-success';
-        var message = this.state.ajaxIsActive
-            ? 'Updating...'
-            : 'Updated';
+        var className = this.state.listIsUpdated
+            ? 'label label-success'
+            : 'label label-warning';
+        var message = this.state.listIsUpdated
+            ? 'Updated'
+            : 'Updating';
 
         return (
             React.createElement("span", {className: className}, message)
@@ -136,7 +152,7 @@ var WorkPlace = React.createClass({
                             )
                         )
                     ),
-                    React.createElement("div", {className: "row"},
+                    React.createElement("div", {className: "row"}, 
                         React.createElement("div", {className: "col-md-6 col-md-offset-3"}, 
                             React.createElement("div", {className: "input-group"}, 
                                 React.createElement("input", {
@@ -158,23 +174,10 @@ var WorkPlace = React.createClass({
                         )
                     ),
                     React.createElement("div", {className: "row", style: {'margin-top': '10px'}},
-                        React.createElement("div", {className: "col-md-4 col-md-offset-5"},
-                            React.createElement("div", {class: "form-group"},
-                                React.createElement("label", {class: "control-label"}, "Seconds between list updates"),
-                                " ",
-                                React.createElement("select", {
-                                        className: "form-control",
-                                        style: {width: 'auto', display: 'inline-block'},
-                                        value: this.state.secondsBetweenUpdates,
-                                        onChange: this.handleChangeUpdateInterval
-                                    },
-                                    React.createElement("option", {value: "1"}, "1 second"),
-                                    React.createElement("option", {value: "2"}, "2 seconds"),
-                                    React.createElement("option", {value: "5"}, "5 seconds")
-                                )
-                            )
-                        ),
-                        React.createElement("div", {className: "col-md-1", style: {'text-align': 'left'}},
+                        React.createElement("div", {
+                                className: "col-md-1 col-md-offset-9",
+                                style: {'text-align': 'center'}
+                            },
                             this.getAjaxStatus()
                         )
                     ),
